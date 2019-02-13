@@ -139,16 +139,19 @@ Inductive stepK : cfg -> cfg -> Prop :=
       pair (K_arr (K_exp (expL e1))
                   (K_arr (K_ctx (app1 hole (expL e2))) k)) rho
   | KST_App2 : forall v1 e2 rho k,
-      value v1 \/ valueK (expL v1) ->
+      valueK (expL v1) ->
       pair (K_arr (K_exp (expL v1))
                   (K_arr (K_ctx (app1 hole (expL e2))) k)) rho ==>
       pair (K_arr (K_exp (expL e2))
                   (K_arr (K_ctx (app2 (expL v1) hole)) k)) rho
-  | KST_Cl : forall x e v rho rho' k,
-      value v \/ valueK (expL v) ->
+  | KST_Cl1 : forall x e rho k,
+      pair (K_arr (K_exp (expL (abs x e))) k) rho ==>
+      pair (K_arr (K_exp (cl x (expL e) rho)) k) rho
+  | KST_Cl2 : forall x e v rho rho' k,
+      valueK (expL v) ->
       pair (K_arr (K_exp (expL v))
-                  (K_arr (K_ctx (app2 (cl x (expL e) rho) hole)) k)) rho' ==>
-      pair (K_arr (K_exp (expL e))
+                  (K_arr (K_ctx (app2 (cl x e rho) hole)) k)) rho' ==>
+      pair (K_arr (K_exp e)
                   (K_arr (K_map rho') k)) (update rho x (expL v))
   | KST_Env : forall v rho rho' k,
       value v \/ valueK (expL v) ->
@@ -164,16 +167,17 @@ Lemma kdot_id : forall k1 k2,
   K_arr k1 k2 = K_arr (K_arr k1 K_dot) k2.
 Admitted.
 
-Theorem step_equiv : forall (e1 : exp) (v2 : exp) k,
-  e1 -->* v2 /\ value v2 <->
-  pair (K_arr (K_exp (expL e1)) k) empty ==>* pair (K_arr (K_exp (expL v2)) k) empty.
+Theorem step_equiv : forall (e1 : exp) (e2 : exp) x k,
+  e1 -->* (abs x e2) <->
+  pair (K_arr (K_exp (expL e1)) k) empty ==>* pair (K_arr (K_exp (cl x (expL e2) empty)) k) empty.
 Proof.
-  split; intros. generalize dependent v2. generalize dependent k.
+  split; intros. generalize dependent k.
   induction e1; intros.
-  inversion H; inversion H0. apply multi_refl. inversion H2.
-  inversion H; inversion H0. apply multi_refl. inversion H2.
-
-  inversion H; inversion H0; subst. apply multi_refl. inversion H2; subst.
+  inversion H; inversion H0.
+  inversion H; subst. eapply multi_step. constructor. apply multi_refl.
+  inversion H; inversion H0.
+  inversion H. inversion H0; subst.
+  eapply multi_step. constructor. eapply multi_step. apply KST_Cl1.
   Admitted.
 
 End Lambda.
